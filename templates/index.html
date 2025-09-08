@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Platform Asesmen Bahasa Inggris</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            max-width: 800px;
+            margin: 40px auto;
+            padding: 20px;
+            background-color: #f9f9f9;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+        }
+        #instruksi_tes {
+            background-color: #e9ecef;
+            padding: 15px;
+            border-radius: 5px;
+            min-height: 50px;
+            color: #495057;
+            border: 1px solid #ced4da;
+        }
+        #pilihanApi, #tombolRekam {
+            width: 100%;
+            padding: 12px;
+            margin-top: 15px;
+            border-radius: 5px;
+            border: 1px solid #ced4da;
+            font-size: 16px;
+        }
+        #tombolRekam {
+            background-color: #007bff;
+            color: white;
+            border-color: #007bff;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        #tombolRekam:hover {
+            background-color: #0056b3;
+        }
+        #tombolRekam.recording {
+            background-color: #dc3545;
+            border-color: #dc3545;
+        }
+        #areaHasil {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #fff;
+            border: 1px solid #ced4da;
+            border-radius: 5px;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>Asesmen Kemampuan Berbicara</h1>
+
+    <div id="instruksi_tes">
+        <p>Silakan pilih jenis tes dari menu di bawah ini untuk melihat instruksi.</p>
+    </div>
+
+    <select id="pilihanApi">
+        <option value="">Pilih API...</option>
+        <option value="lc_scripted">LanguageConfidence (Scripted)</option>
+        <option value="lc_unscripted">LanguageConfidence (Unscripted)</option>
+        <option value="sa_scripted">SpeechAce (Scripted)</option>
+        <option value="sa_unscripted">SpeechAce (Unscripted)</option>
+    </select>
+
+    <button id="tombolRekam">Mulai Merekam</button>
+
+    <h3>Hasil Analisis:</h3>
+    <div id="areaHasil">
+        <p>Hasil dari backend akan ditampilkan di sini.</p>
+    </div>
+
+<script>
+    // Bagian 1: Elemen DOM dan Variabel
+    const pilihanApi = document.getElementById('pilihanApi');
+    const instruksiTes = document.getElementById('instruksi_tes');
+    const tombolRekam = document.getElementById('tombolRekam');
+    const areaHasil = document.getElementById('areaHasil');
+
+    let mediaRecorder;
+    let audioChunks = [];
+    let isRecording = false;
+
+    // Bagian 2: Konfigurasi untuk setiap API
+    const apiConfigs = {
+        'lc_scripted': {
+            assessmentType: 'scripted',
+            promptText: "Please read the following sentence aloud: 'The quick brown fox jumps over the lazy dog.'"
+        },
+        'lc_unscripted': {
+            assessmentType: 'unscripted',
+            promptText: "Please describe your daily routine in a few sentences. You have 30 seconds to speak."
+        },
+        'sa_scripted': {
+            assessmentType: 'scripted',
+            promptText: "Please say this phrase: 'She sells seashells by the seashore.'"
+        },
+        'sa_unscripted': {
+            assessmentType: 'unscripted',
+            promptText: "Tell us about your favorite hobby. What do you like about it?"
+        }
+    };
+
+    // Bagian 3: Event Listener untuk Dropdown
+    pilihanApi.addEventListener('change', () => {
+        const selectedApi = pilihanApi.value;
+        if (selectedApi && apiConfigs[selectedApi]) {
+            instruksiTes.innerHTML = `<p>${apiConfigs[selectedApi].promptText}</p>`;
+        } else {
+            instruksiTes.innerHTML = '<p>Silakan pilih jenis tes dari menu di bawah ini untuk melihat instruksi.</p>';
+        }
+    });
+
+    // Bagian 4: Fungsi Perekaman Suara
+    tombolRekam.addEventListener('click', () => {
+        if (!isRecording) {
+            startRecording();
+        } else {
+            stopRecording();
+        }
+    });
+
+    async function startRecording() {
+        if (!pilihanApi.value) {
+            alert("Harap pilih API terlebih dahulu!");
+            return;
+        }
+        
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            mediaRecorder = new MediaRecorder(stream);
+            
+            mediaRecorder.ondataavailable = event => {
+                audioChunks.push(event.data);
+            };
+            
+            mediaRecorder.onstop = sendDataToBackend;
+
+            audioChunks = [];
+            mediaRecorder.start();
+            isRecording = true;
+            
+            tombolRekam.textContent = 'Kirim';
+            tombolRekam.classList.add('recording');
+            areaHasil.innerHTML = '<p>Merekam suara...</p>';
+
+        } catch (error) {
+            console.error("Error saat mengakses mikrofon:", error);
+            areaHasil.innerHTML = '<p>Gagal mengakses mikrofon. Pastikan Anda memberikan izin.</p>';
+        }
+    }
+
+    function stopRecording() {
+        if (mediaRecorder) {
+            mediaRecorder.stop();
+            isRecording = false;
+            
+            tombolRekam.textContent = 'Mulai Merekam';
+            tombolRekam.classList.remove('recording');
+            areaHasil.innerHTML = '<p>Perekaman selesai. Mengirim data ke server...</p>';
+        }
+    }
+
+    // Bagian 5: Mengirim Data ke Backend
+    function sendDataToBackend() {
+        const selectedApiValue = pilihanApi.value;
+        const config = apiConfigs[selectedApiValue];
+        const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+        const formData = new FormData();
+        
+        // Selalu kirim audio dan pilihan API
+        formData.append('audio', audioBlob, 'assessment_audio.webm');
+        formData.append('apiChoice', selectedApiValue);
+
+        // BARU: Selalu kirim promptText untuk digunakan sebagai konteks relevansi
+        const promptText = instruksiTes.querySelector('p').textContent;
+        formData.append('promptText', promptText);
+
+        fetch('/analisis_master', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            console.log('Sukses:', data);
+            // Tampilan hasil sedikit diubah untuk menampilkan lebih banyak detail
+            let hasilHtml = `<p><strong>API:</strong> ${data.api_sumber || 'N/A'}</p>
+                             <p><strong>Skor:</strong> ${data.score || 'N/A'}</p>
+                             <p><strong>Feedback:</strong> ${data.feedback || 'Tidak ada feedback.'}</p>`;
+            if (data.transcript) {
+                hasilHtml += `<p><strong>Transkrip:</strong> <em>${data.transcript}</em></p>`;
+            }
+            areaHasil.innerHTML = hasilHtml;
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            areaHasil.innerHTML = '<p>Terjadi kesalahan saat mengirim data ke server.</p>';
+        });
+    }
+
+</script>
+
+</body>
+</html>
