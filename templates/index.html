@@ -67,10 +67,9 @@
 
     <select id="pilihanApi">
         <option value="">Pilih API...</option>
-        <option value="lc_scripted">LanguageConfidence (Scripted)</option>
-        <option value="lc_unscripted">LanguageConfidence (Unscripted)</option>
-        <option value="sa_scripted">SpeechAce (Scripted)</option>
-        <option value="sa_unscripted">SpeechAce (Unscripted)</option>
+        <option value="lc">Language Confidence</option>
+        <option value="sa">SpeechAce</option>
+        <option value="ss">SpeechSuper</option>
     </select>
 
     <button id="tombolRekam">Mulai Merekam</button>
@@ -81,7 +80,7 @@
     </div>
 
 <script>
-    // Bagian 1: Elemen DOM dan Variabel
+    // Bagian 1: Elemen DOM dan Variabel (tidak berubah)
     const pilihanApi = document.getElementById('pilihanApi');
     const instruksiTes = document.getElementById('instruksi_tes');
     const tombolRekam = document.getElementById('tombolRekam');
@@ -91,27 +90,23 @@
     let audioChunks = [];
     let isRecording = false;
 
-    // Bagian 2: Konfigurasi untuk setiap API
+    // BAGIAN 2 YANG DIUBAH: Konfigurasi disesuaikan dengan 3 API unscripted
     const apiConfigs = {
-        'lc_scripted': {
-            assessmentType: 'scripted',
-            promptText: "Please read the following sentence aloud: 'The quick brown fox jumps over the lazy dog.'"
-        },
-        'lc_unscripted': {
+        'lc': {
             assessmentType: 'unscripted',
-            promptText: "Please describe your daily routine in a few sentences. You have 30 seconds to speak."
+            promptText: "Please tell us about your professional background and experience."
         },
-        'sa_scripted': {
-            assessmentType: 'scripted',
-            promptText: "Please say this phrase: 'She sells seashells by the seashore.'"
-        },
-        'sa_unscripted': {
+        'sa': {
             assessmentType: 'unscripted',
-            promptText: "Tell us about your favorite hobby. What do you like about it?"
+            promptText: "What are your career goals for the next five years? Please explain."
+        },
+        'ss': {
+            assessmentType: 'unscripted',
+            promptText: "Describe a challenging project you have worked on and how you handled it."
         }
     };
 
-    // Bagian 3: Event Listener untuk Dropdown
+    // Bagian 3: Event Listener untuk Dropdown (tidak berubah)
     pilihanApi.addEventListener('change', () => {
         const selectedApi = pilihanApi.value;
         if (selectedApi && apiConfigs[selectedApi]) {
@@ -121,7 +116,7 @@
         }
     });
 
-    // Bagian 4: Fungsi Perekaman Suara
+    // Bagian 4: Fungsi Perekaman Suara (tidak berubah)
     tombolRekam.addEventListener('click', () => {
         if (!isRecording) {
             startRecording();
@@ -135,25 +130,19 @@
             alert("Harap pilih API terlebih dahulu!");
             return;
         }
-        
         try {
             const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
             mediaRecorder = new MediaRecorder(stream);
-            
             mediaRecorder.ondataavailable = event => {
                 audioChunks.push(event.data);
             };
-            
             mediaRecorder.onstop = sendDataToBackend;
-
             audioChunks = [];
             mediaRecorder.start();
             isRecording = true;
-            
             tombolRekam.textContent = 'Kirim';
             tombolRekam.classList.add('recording');
             areaHasil.innerHTML = '<p>Merekam suara...</p>';
-
         } catch (error) {
             console.error("Error saat mengakses mikrofon:", error);
             areaHasil.innerHTML = '<p>Gagal mengakses mikrofon. Pastikan Anda memberikan izin.</p>';
@@ -164,25 +153,22 @@
         if (mediaRecorder) {
             mediaRecorder.stop();
             isRecording = false;
-            
             tombolRekam.textContent = 'Mulai Merekam';
             tombolRekam.classList.remove('recording');
             areaHasil.innerHTML = '<p>Perekaman selesai. Mengirim data ke server...</p>';
         }
     }
 
-    // Bagian 5: Mengirim Data ke Backend
+    // Bagian 5: Mengirim Data ke Backend (tidak berubah, sudah benar)
     function sendDataToBackend() {
         const selectedApiValue = pilihanApi.value;
         const config = apiConfigs[selectedApiValue];
         const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
         const formData = new FormData();
         
-        // Selalu kirim audio dan pilihan API
         formData.append('audio', audioBlob, 'assessment_audio.webm');
         formData.append('apiChoice', selectedApiValue);
 
-        // BARU: Selalu kirim promptText untuk digunakan sebagai konteks relevansi
         const promptText = instruksiTes.querySelector('p').textContent;
         formData.append('promptText', promptText);
 
@@ -193,7 +179,6 @@
         .then(response => response.json())
         .then(data => {
             console.log('Sukses:', data);
-            // Tampilan hasil sedikit diubah untuk menampilkan lebih banyak detail
             let hasilHtml = `<p><strong>API:</strong> ${data.api_sumber || 'N/A'}</p>
                              <p><strong>Skor:</strong> ${data.score || 'N/A'}</p>
                              <p><strong>Feedback:</strong> ${data.feedback || 'Tidak ada feedback.'}</p>`;
